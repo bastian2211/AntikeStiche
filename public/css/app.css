@@ -1,0 +1,138 @@
+/*
+ * Antiquariat Webshop – Basis-Stylesheet
+ * Ergänzt Tailwind CDN mit shop-spezifischen Styles
+ */
+
+/* ============================================================
+   Typografie
+   ============================================================ */
+
+body {
+    font-family: 'EB Garamond', 'Georgia', serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Serifenlose Elemente (UI) */
+button, input, select, textarea, label,
+.font-sans, nav, .admin-ui {
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ============================================================
+   Artikel-Karte
+   ============================================================ */
+
+.article-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.article-card:hover {
+    transform: translateY(-2px);
+}
+
+.article-card img {
+    transition: transform 0.3s ease;
+}
+
+.article-card:hover img {
+    transform: scale(1.03);
+}
+
+/* ============================================================
+   Bildgalerie (Alpine.js Lightbox)
+   ============================================================ */
+
+.lightbox-overlay {
+    backdrop-filter: blur(4px);
+}
+
+/* ============================================================
+   Prose (Seiteninhalte)
+   ============================================================ */
+
+.prose h2 { margin-top: 2rem; margin-bottom: 0.75rem; }
+.prose h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; }
+.prose p  { margin-bottom: 1rem; }
+.prose ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+.prose ol { list-style: decimal; padding-left: 1.5rem; margin-bottom: 1rem; }
+.prose li { margin-bottom: 0.25rem; }
+
+/* ============================================================
+   Admin – Quill Editor
+   ============================================================ */
+
+.ql-container {
+    font-family: inherit;
+    font-size: 0.9rem;
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+    border-color: #d6d3d1 !important;
+}
+
+.ql-toolbar {
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+    border-color: #d6d3d1 !important;
+    background: #fafaf9;
+}
+
+/* ============================================================
+   Pagination (Laravel Standard)
+   ============================================================ */
+
+nav[aria-label="Pagination Navigation"] {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+nav[aria-label="Pagination Navigation"] span,
+nav[aria-label="Pagination Navigation"] a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.5rem;
+    font-size: 0.875rem;
+    border-radius: 0.375rem;
+    color: #57534e;
+}
+
+nav[aria-label="Pagination Navigation"] a:hover {
+    background: #f5f5f4;
+    color: #1c1917;
+}
+
+nav[aria-label="Pagination Navigation"] [aria-current="page"] span {
+    background: #f59e0b;
+    color: #1c1917;
+    font-weight: 600;
+}
+
+/* ============================================================
+   Formulare
+   ============================================================ */
+
+/* Focus-Ring für alle Inputs vereinheitlichen */
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    ring: 2px solid #f59e0b;
+}
+
+/* ============================================================
+   Scroll-Verhalten
+   ============================================================ */
+
+html {
+    scroll-behavior: smooth;
+}
+
+/* ============================================================
+   Print-Styles
+   ============================================================ */
+
+@media print {
+    header, footer, nav, .no-print { display: none !important; }
+    body { color: #000; background: #fff; }
+}

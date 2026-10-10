@@ -1,0 +1,30 @@
+# ============================================================================
+# Root-Verzeichnis .htaccess
+# Schützt alle PHP-Dateien außer dem public/-Verzeichnis
+# Auf one.com: Domain-Root auf /public/ zeigen lassen (empfohlen),
+# ODER diese Datei im Root belassen.
+# ============================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Alle Anfragen zum /public/ Verzeichnis weiterleiten
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Sensitive Dateien schützen
+<Files ".env">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "composer.json">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "composer.lock">
+    Order allow,deny
+    Deny from all
+</Files>
