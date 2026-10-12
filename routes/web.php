@@ -75,6 +75,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         // Statische Seiten
         Route::resource('pages', PageController::class);
+
+        // eBay Import
+        Route::get('import/test', [\App\Http\Controllers\Admin\ImportController::class, 'testImport'])->name('import.test');
+        Route::get('import/full', [\App\Http\Controllers\Admin\ImportController::class, 'fullImport'])->name('import.full');
     });
 });
 

@@ -114,6 +114,142 @@ class EbayService
     }
 
     /**
+     * Alle aktiven eBay-Listings (DE) importieren inkl. Fotos.
+     * Läuft paginiert in 200er-Blöcken.
+     *
+     * @param int $limit  0 = alle, sonst max. N Artikel (für Testläufe)
+     * @param callable|null $progress  Callback($done, $total) für Fortschritt
+     */
+    public function importFromEbay(int $limit = 0, ?callable $progress = null): array
+    {
+        $stats = ['imported' => 0, 'updated' => 0, 'errors' => 0, 'skipped' => 0];
+        $page  = 1;
+        $perPage = 200;
+        $totalPages = 1;
+        $totalDone = 0;
+
+        do {
+            $xml = $this->buildRequest('GetSellerList', "
+                <ActiveList>true</ActiveList>
+                <StartTimeFrom>" . date('Y-m-d\TH:i:s\Z', strtotime('-120 days')) . "</StartTimeFrom>
+                <StartTimeTo>" . date('Y-m-d\TH:i:s\Z') . "</StartTimeTo>
+                <GranularityLevel>Fine</GranularityLevel>
+                <IncludeItemSpecifics>false</IncludeItemSpecifics>
+                <Pagination>
+                    <EntriesPerPage>{$perPage}</EntriesPerPage>
+                    <PageNumber>{$page}</PageNumber>
+                </Pagination>
+            ");
+
+            $response = $this->call('GetSellerList', $xml);
+
+            if (!$response || !in_array($response['Ack'] ?? '', ['Success', 'Warning'])) {
+                Log::error('eBay Import: GetSellerList fehlgeschlagen', $response ?? []);
+                $stats['errors']++;
+                break;
+            }
+
+            $totalPages  = (int) ($response['PaginationResult']['TotalNumberOfPages'] ?? 1);
+            $totalItems  = (int) ($response['PaginationResult']['TotalNumberOfEntries'] ?? 0);
+            $items       = $response['ItemArray']['Item'] ?? [];
+
+            // Einzelner Artikel kommt nicht als Array
+            if (isset($items['ItemID'])) {
+                $items = [$items];
+            }
+
+            foreach ($items as $item) {
+                if ($limit > 0 && $totalDone >= $limit) break 2;
+
+                try {
+                    $this->upsertArticle($item, $stats);
+                    $totalDone++;
+                    if ($progress) $progress($totalDone, $totalItems);
+                } catch (\Exception $e) {
+                    Log::error('eBay Import: Artikel-Fehler', [
+                        'item_id' => $item['ItemID'] ?? '?',
+                        'error'   => $e->getMessage(),
+                    ]);
+                    $stats['errors']++;
+                }
+            }
+
+            $page++;
+
+        } while ($page <= $totalPages);
+
+        return $stats;
+    }
+
+    /**
+     * Einen eBay-Artikel in die DB schreiben (insert or update).
+     */
+    private function upsertArticle(array $item, array &$stats): void
+    {
+        $ebayId   = $item['ItemID'] ?? null;
+        $title    = $item['Title'] ?? '';
+        $price    = (float) ($item['BuyItNowPrice']['value']
+                    ?? $item['StartPrice']['value']
+                    ?? $item['SellingStatus']['CurrentPrice']['value']
+                    ?? 0);
+        $stock    = (int) ($item['Quantity'] ?? 1) - (int) ($item['QuantitySold'] ?? 0);
+        $catName  = $item['PrimaryCategory']['CategoryName'] ?? null;
+        $desc     = $item['Description'] ?? '';
+
+        // Fotos sammeln
+        $photos = [];
+        $pic    = $item['PictureDetails'] ?? [];
+        if (!empty($pic['PictureURL'])) {
+            $urls = is_array($pic['PictureURL']) ? $pic['PictureURL'] : [$pic['PictureURL']];
+            $photos = array_values(array_filter($urls));
+        }
+
+        // Kategorie anlegen/finden
+        $categoryId = null;
+        if ($catName) {
+            $cat = \App\Models\Category::firstOrCreate(
+                ['slug' => \Illuminate\Support\Str::slug($catName)],
+                ['name' => $catName, 'is_active' => true]
+            );
+            $categoryId = $cat->id;
+        }
+
+        // Artikel anlegen oder aktualisieren
+        $article = \App\Models\Article::updateOrCreate(
+            ['ebay_item_id' => $ebayId],
+            [
+                'title'           => $title,
+                'description'     => $desc,
+                'price'           => $price > 0 ? $price : 8.25,
+                'price_eur'       => $price > 0 ? $price : 8.25,
+                'stock'           => max(0, $stock),
+                'status'          => $stock > 0 ? 'active' : 'sold',
+                'category_id'     => $categoryId,
+                'ebay_active'     => true,
+                'ebay_sync_status'=> 'synced',
+                'ebay_last_sync_at' => now(),
+                'primary_image'   => $photos[0] ?? null,
+            ]
+        );
+
+        $isNew = $article->wasRecentlyCreated;
+
+        // Fotos speichern (nur bei neuen Artikeln oder wenn noch keine vorhanden)
+        if ($photos && ($isNew || $article->images()->count() === 0)) {
+            $article->images()->delete();
+            foreach ($photos as $i => $url) {
+                $article->images()->create([
+                    'url'        => $url,
+                    'is_primary' => $i === 0,
+                    'sort_order' => $i,
+                ]);
+            }
+        }
+
+        $isNew ? $stats['imported']++ : $stats['updated']++;
+    }
+
+    /**
      * Aktuelle eBay-Listings abrufen und mit Shop abgleichen.
      */
     public function syncFromEbay(): array
