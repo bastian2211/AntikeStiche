@@ -97,4 +97,10 @@ Route::prefix('api')->name('api.')->group(function () {
     // eBay Notification (Availability Alert)
     Route::post('/ebay/notification', [\App\Http\Controllers\Shop\EbayNotificationController::class, 'handle'])
         ->name('ebay.notification');
+
+    // eBay Marketplace Account Deletion (Pflicht für alle eBay API Apps)
+    // GET: Challenge-Response (Endpoint-Bestätigung)
+    // POST: Lösch-Benachrichtigung
+    Route::match(['GET', 'POST'], '/ebay/account-deletion', [\App\Http\Controllers\Shop\EbayAccountDeletionController::class, 'handle'])
+        ->name('ebay.account-deletion');
 });
