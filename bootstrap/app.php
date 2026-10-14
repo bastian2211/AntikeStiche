@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth.admin' => \App\Http\Middleware\AdminAuth::class,
         ]);
+
+        // Unauthentifizierte Requests zum Admin-Login umleiten (nicht zu 'login')
+        $middleware->redirectGuestsTo(fn () => route('admin.login'));
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
