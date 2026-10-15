@@ -299,14 +299,23 @@ class EbayService
 
     // -------------------------------------------------------------------------
 
+    private function isOAuthToken(): bool
+    {
+        return str_starts_with($this->authToken, 'v^1');
+    }
+
     private function buildRequest(string $callName, string $body): string
     {
+        // Bei OAuth: kein Token im XML-Body (kommt als Bearer-Header)
+        $credentials = $this->isOAuthToken() ? '' : "
+            <RequesterCredentials>
+                <eBayAuthToken>{$this->authToken}</eBayAuthToken>
+            </RequesterCredentials>";
+
         return <<<XML
         <?xml version="1.0" encoding="utf-8"?>
         <{$callName}Request xmlns="urn:ebay:apis:eBLBaseComponents">
-            <RequesterCredentials>
-                <eBayAuthToken>{$this->authToken}</eBayAuthToken>
-            </RequesterCredentials>
+            {$credentials}
             {$body}
         </{$callName}Request>
         XML;
@@ -314,16 +323,23 @@ class EbayService
 
     private function call(string $callName, string $xml): ?array
     {
+        $headers = [
+            'X-EBAY-API-COMPATIBILITY-LEVEL' => '1155',
+            'X-EBAY-API-DEV-NAME'            => $this->devId,
+            'X-EBAY-API-APP-NAME'            => $this->appId,
+            'X-EBAY-API-CERT-NAME'           => $this->certId,
+            'X-EBAY-API-CALL-NAME'           => $callName,
+            'X-EBAY-API-SITEID'              => '77', // eBay.de
+            'Content-Type'                   => 'text/xml',
+        ];
+
+        // OAuth Token als Bearer-Header
+        if ($this->isOAuthToken()) {
+            $headers['Authorization'] = 'Bearer ' . $this->authToken;
+        }
+
         try {
-            $response = Http::withHeaders([
-                'X-EBAY-API-COMPATIBILITY-LEVEL' => '1155',
-                'X-EBAY-API-DEV-NAME'            => $this->devId,
-                'X-EBAY-API-APP-NAME'            => $this->appId,
-                'X-EBAY-API-CERT-NAME'           => $this->certId,
-                'X-EBAY-API-CALL-NAME'           => $callName,
-                'X-EBAY-API-SITEID'              => '77', // eBay.de
-                'Content-Type'                   => 'text/xml',
-            ])->send('POST', $this->apiUrl, ['body' => $xml]);
+            $response = Http::withHeaders($headers)->send('POST', $this->apiUrl, ['body' => $xml]);
 
             if (!$response->successful()) {
                 return ['error' => "HTTP {$response->status()}"];
